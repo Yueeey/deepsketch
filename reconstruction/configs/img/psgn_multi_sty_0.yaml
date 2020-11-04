@@ -1,0 +1,26 @@
+method: psgn
+data:
+  path: /vol/research/ycres/zy/dataSets/occ/ShapeNet
+  margin: 0.11
+  reg: gau
+  anc_folder: sty_mad
+  other_folder: sty_mad
+  img_size: 224 
+  pointcloud_target_n: 1024
+model:
+  decoder: simple
+  encoder: resnet18 
+  c_dim: 256 
+  z_dim: 0
+training:
+  out_dir: out/img/psgn_multi_rough_sty_0
+  batch_size: 64
+test:
+  eval_mesh: false
+  eval_pointcloud: true
+generation:
+  batch_size: 100000
+  refine: false
+  n_x: 128
+  n_z: 1
+  generate_mesh: false
