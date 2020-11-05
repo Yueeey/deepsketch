@@ -39,7 +39,7 @@ sh scripts/download_dataset.sh
 
 ## Results
 
-It is notable that EINV2-DA is a single model with plain VGGish architecture using only the channel-rotation and the specaug data-augmentation methods.
+We identify key differences between sketch and image inputs, driving out important insights and proposing the respective solutions, we show an improved performance of deep image modeling..
 
 <img src="img/tease.gif" width="700">
 
