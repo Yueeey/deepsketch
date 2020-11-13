@@ -4,7 +4,7 @@ This repository contains the code for binary mask prediction, this code is based
 
 You can find detailed usage instructions for training and evaluation below.
 
-If you find our code or paper useful, please consider citing
+ If you use our code or dataset, please cite our work:
 
     @inproceedings{deepsketch2020,
         title = {Deep Sketch-Based Modeling: Tips and Tricks },

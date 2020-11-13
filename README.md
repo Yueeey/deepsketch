@@ -9,7 +9,7 @@
 
 ## Introduction
 
-This repository contains the Pytorch implementation of Deep Sketch-Based Modeling: Tips and Tricks, including binary mask prediction and 3D shape reconstruction. 
+This repository contains the Pytorch implementation of [Deep Sketch-Based Modeling: Tips and Tricks](https://arxiv.org/abs/2011.06133), including binary mask prediction and 3D shape reconstruction. 
 
 You can find detailed usage instructions for training and evaluation below.
 
