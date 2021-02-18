@@ -37,6 +37,22 @@ Download dataset is easy. Directly run
 sh scripts/download_dataset.sh
 ```
 
+## Generate your own dataset
+
+To generated your own dataset, simply run the code below to generate the synthetic dataset.
+
+```bash
+python dataset/run.py
+```
+
+Note: you need to change the *.csv file according to your own dataset.
+
+Then, to stylised the genertaed dataset, run the code from [SynDraw](https://gitlab.inria.fr/D3/contour-detect/-/blob/master/svg_tools/svg_disturber.py)
+
+```bash
+python dataset/svg_tools_svg_disturber.py -a -c -n 1.3 -r 2.5 -sl 0.9 -su 1.1 -t 2 -min 1 -max 2 -os 1 -pen 2.5 -penv 1.5 -bg -u
+```
+
 ## Results
 
 We identify key differences between sketch and image inputs, driving out important insights and proposing the respective solutions, we show an improved performance of deep image modeling..
