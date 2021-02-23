@@ -26,16 +26,13 @@ You can find detailed usage instructions for training and evaluation below.
 
 First you have to make sure that you have all dependencies in place.
 The simplest way to do so, is to use [anaconda](https://www.anaconda.com/). 
-
+sss
 Please refer the README file in each sub-task for detailed instruction.
-
+s
 ## Download Dataset
 
-Download dataset is easy. Directly run
+Download dataset is easy. Directly download from [Dataset](https://pan.baidu.com/s/1wpf6Tc7h55TN6bdUYXQsPQ) with code: fhp7.
 
-```bash
-sh scripts/download_dataset.sh
-```
 
 ## Generate your own dataset
 
