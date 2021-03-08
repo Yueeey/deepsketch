@@ -33,6 +33,8 @@ s
 
 Download dataset is easy. Directly download from [Dataset](https://pan.baidu.com/s/1wpf6Tc7h55TN6bdUYXQsPQ) with code: fhp7.
 
+Most of our experiments are conducted on the modelsfrom a chair category of the ShapeNetCore dataset2, complemented by two additional categories:  planes and lamps. We selected these categories guided by the next principles: 1) Easy to sketch. 2) Generality. 3) View differentiability. 4) Shape genius higher than 1。 5) Large inter-category variance. We generate three categories with distinctive styles, whichwe refer to as naive, stylized and style-unified. Please refer paper for further details.
+
 
 ## Generate your own dataset
 
