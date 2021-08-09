@@ -28,7 +28,6 @@ First you have to make sure that you have all dependencies in place.
 The simplest way to do so, is to use [anaconda](https://www.anaconda.com/). 
 sss
 Please refer the README file in each sub-task for detailed instruction.
-s
 ## Download Dataset
 
 Download dataset is easy. Directly download from [Dataset](https://pan.baidu.com/s/1wpf6Tc7h55TN6bdUYXQsPQ) with code: fhp7.
@@ -52,7 +51,7 @@ python dataset/svg_tools_svg_disturber.py -a -c -n 1.3 -r 2.5 -sl 0.9 -su 1.1 -t
 
 ## Results
 
-We identify key differences between sketch and image inputs, driving out important insights and proposing the respective solutions, we show an improved performance of deep image modeling..
+We identify key differences between sketch and image inputs, driving out important insights and proposing the respective solutions, we show an improved performance of deep image modeling.
 
 <img src="img/tease.gif" width="700">
 
