@@ -30,11 +30,12 @@ sss
 Please refer the README file in each sub-task for detailed instruction.
 s
 ## Download Dataset
+We use two datasets in this paper: the [ProSketch dataset](http://personal.ee.surrey.ac.uk/Personal/Y.Song/ProSketch-3Dchair.zip) and a dataset of [synthetic sketches](https://cvssp.org/data/SyntheticChairSketch/).
 
-Download dataset is easy. Directly download from [Dataset](https://pan.baidu.com/s/1wpf6Tc7h55TN6bdUYXQsPQ) with code: fhp7.
+ProSketch is a dataset of human skecthes, which is a part of [this publication](https://ieeexplore.ieee.org/document/9272370).
+The syntehtic data can be generated for other shapes and categories as discribed below.
 
-
-## Generate your own dataset
+### Generate your own dataset of synthetic sketches.
 
 To generated your own dataset, simply run the code below to generate the synthetic dataset.
 
