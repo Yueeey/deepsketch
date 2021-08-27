@@ -29,13 +29,12 @@ The simplest way to do so, is to use [anaconda](https://www.anaconda.com/).
 sss
 Please refer the README file in each sub-task for detailed instruction.
 ## Download Dataset
+We use two datasets in this paper: the [ProSketch dataset](http://personal.ee.surrey.ac.uk/Personal/Y.Song/ProSketch-3Dchair.zip) and a dataset of [synthetic sketches](https://cvssp.org/data/SyntheticChairSketch/).
 
-<!--Directly download from [Dataset](https://pan.baidu.com/s/1wpf6Tc7h55TN6bdUYXQsPQ) with code: fhp7.-->
-The updated link is comping soon. 
+ProSketch is a dataset of human sketches, and is a part of [this publication](https://ieeexplore.ieee.org/document/9272370).
+The synthetic data can be generated for other shapes and categories as described below.
 
-## Generate your own dataset
-
-To generated your own dataset, simply run the code below to generate the synthetic dataset.
+### Generate your own dataset of synthetic sketches.
 
 ```bash
 python dataset/run.py
