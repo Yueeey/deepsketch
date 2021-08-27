@@ -32,8 +32,8 @@ s
 ## Download Dataset
 We use two datasets in this paper: the [ProSketch dataset](http://personal.ee.surrey.ac.uk/Personal/Y.Song/ProSketch-3Dchair.zip) and a dataset of [synthetic sketches](https://cvssp.org/data/SyntheticChairSketch/).
 
-ProSketch is a dataset of human skecthes, which is a part of [this publication](https://ieeexplore.ieee.org/document/9272370).
-The syntehtic data can be generated for other shapes and categories as discribed below.
+ProSketch is a dataset of human sketches, and is a part of [this publication](https://ieeexplore.ieee.org/document/9272370).
+The synthetic data can be generated for other shapes and categories as described below.
 
 ### Generate your own dataset of synthetic sketches.
 
