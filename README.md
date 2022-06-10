@@ -34,7 +34,6 @@ We use two datasets in this paper: the [ProSketch dataset](http://personal.ee.su
 ProSketch is a dataset of human sketches, and is a part of [this publication](https://ieeexplore.ieee.org/document/9272370).
 The synthetic data can be generated for other shapes and categories as described below.
 
-<<<<<<< HEAD
 Most of our experiments are conducted on the modelsfrom a chair category of the ShapeNetCore dataset2, complemented by two additional categories:  planes and lamps. We selected these categories guided by the next principles: 1) Easy to sketch. 2) Generality. 3) View differentiability. 4) Shape genius higher than 1。 5) Large inter-category variance. We generate three categories with distinctive styles, whichwe refer to as naive, stylized and style-unified. Please refer paper for further details.
 
 
@@ -43,7 +42,6 @@ Most of our experiments are conducted on the modelsfrom a chair category of the 
 To generated your own dataset, simply run the code below to generate the synthetic dataset.
 =======
 ### Generate your own dataset of synthetic sketches.
->>>>>>> 7f62f677dfa092f05c22287d0ac9e18ef621caf3
 
 ```bash
 python dataset/run.py
