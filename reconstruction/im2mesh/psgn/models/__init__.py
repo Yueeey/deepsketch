@@ -28,7 +28,17 @@ class PCGN(nn.Module):
         self.encoder = encoder
 
     def forward(self, x):
-        c = self.encoder(x)
-        points = self.decoder(c)
-        c = F.normalize(c)
+        latent = self.encoder(x)
+        points = self.decoder(latent)
+        c = F.normalize(latent)
         return points, c
+
+    # def forward(self, x):
+    #     latent = self.encoder(x)
+    #     points = self.decoder(latent)
+    #     c = F.normalize(latent)
+    #     return points, c, latent
+
+    def bias(self, c):
+        points = self.decoder(c)
+        return points

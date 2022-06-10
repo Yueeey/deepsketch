@@ -58,24 +58,3 @@ To generate meshes using a trained model, use
 python generate.py CONFIG.yaml
 ```
 where you replace `CONFIG.yaml` with the correct config file.
-
-
-### Evaluation
-For evaluation of the models, we provide two scripts: `eval.py` and `eval_meshes.py`.
-
-The main evaluation script is `eval_meshes.py`.
-You can run it using
-```
-python eval_meshes.py CONFIG.yaml
-```
-The script takes the meshes generated in the previous step and evaluates them using a standardized protocol.
-The output will be written to `.pkl`/`.csv` files in the corresponding generation folder which can be processed using [pandas](https://pandas.pydata.org/).
-
-For a quick evaluation, you can also run
-```
-python eval.py CONFIG.yaml
-```
-This script will run a fast method specific evaluation to obtain some basic quantities that can be easily computed without extracting the meshes.
-This evaluation will also be conducted automatically on the validation set during training.
-
-All results reported in the paper were obtained using the `eval_meshes.py` script.

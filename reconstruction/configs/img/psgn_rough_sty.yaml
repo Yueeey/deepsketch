@@ -1,6 +1,6 @@
 method: psgn
 data:
-  path: /vol/research/ycres/zy/dataSets/occ/ShapeNet
+  path: /vol/research/ycau/shapeNet
   margin: 0.11
   reg: gau
   anc_folder: sty_mad

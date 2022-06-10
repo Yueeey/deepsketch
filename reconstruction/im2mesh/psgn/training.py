@@ -223,6 +223,10 @@ class Trainer(BaseTrainer):
         reg_list = []
         # vals = 0.11
         sigma = m * 0.997/3
+        m2 = 1.2
+        tau = m2 * 0.997/3
+        m3 = -0.2
+        tau1 = m3 * 0.997/3
         # l1 = nn.L1Loss()
 
         # for n in range(batch_size):
@@ -265,7 +269,7 @@ class Trainer(BaseTrainer):
                 # reg_t = reg_t / s_num
                 # t_reg = torch.mean(torch.stack(t_reg_list), dim=0)
                 reg_list.append(reg_t)
-        else:
+        elif reg == 'ave':
             for n in range(batch_size):
                 t_feature = anc_feature[n]
                 t_feature_list = torch.stack([anc_feature[n]]*(batch_size-1), dim=0)
@@ -290,12 +294,68 @@ class Trainer(BaseTrainer):
                 # reg_t = reg_t / s_num
                 # t_reg = torch.mean(torch.stack(t_reg_list), dim=0)
                 reg_list.append(reg_t)
+        elif reg == 'gau_exp':
+            for n in range(batch_size): 
+                t_feature = anc_feature[n]
+                t_feature_list = torch.stack([anc_feature[n]]*(batch_size-1), dim=0)
+                s_feature_list = torch.cat([anc_feature[0:n], anc_feature[n+1:]], dim=0)
+                t_points_list = torch.stack([anc_points[n]]*(batch_size-1), dim=0)
+                t_points = anc_points[n]
+                s_points_list = torch.cat([anc_points[0:n], anc_points[n+1:]], dim=0)
+                s_num = batch_size - 1
+                # t_points_list = t_points[None, :, :]
+                # t_points_list = t_points_list.repeat(s_points_list.shape[0],1,1)  
+                p_deno = torch.sum(torch.exp(-1 * chamfer_distance(t_points_list, s_points_list) / (2 * sigma)))
+                p_hat_deno = torch.sum(torch.exp(torch.einsum('bl, bl -> b' , t_feature_list, s_feature_list)))
+                # p_hat_deno = sum([torch.dot(t_feature, t_feature_list[s_idx]) for s_idx in range(s_num)])
+                # p_hat_nume =
+                # t_reg_list = []
+                # reg_t = 0.
+                p = torch.exp(-1 * chamfer_distance(t_points_list, s_points_list) / (2 * sigma))/ p_deno
+                p_hat = torch.exp(torch.einsum('bl, bl -> b' , t_feature_list, s_feature_list))/ p_hat_deno
+                reg_t = torch.mean(torch.abs(p_hat-p))
+                # torch.sum(F.l1_loss(p_hat, p))
 
+                # for s_idx in range(s_num):
+                #     reg_t += F.l1_loss((torch.dot(t_feature, s_feature_list[s_idx]) / p_hat_deno),
+                #         (torch.exp(-1 * chamfer_distance(t_points[None,...], s_points_list[s_idx][None,...])/ (2 * sigma)) / p_deno))
+                #     # t_reg_list.append(reg)
+                # reg_t = reg_t / s_num
+                # t_reg = torch.mean(torch.stack(t_reg_list), dim=0)
+                reg_list.append(reg_t)
+        elif reg == 'gau_exp1':
+            for n in range(batch_size): 
+                t_feature = anc_feature[n]
+                t_feature_list = torch.stack([anc_feature[n]]*(batch_size), dim=0)
+                s_feature_list = anc_feature
+                t_points_list = torch.stack([anc_points[n]]*(batch_size), dim=0)
+                t_points = anc_points[n]
+                s_points_list = anc_points
+                s_num = batch_size
+                # t_points_list = t_points[None, :, :]
+                # t_points_list = t_points_list.repeat(s_points_list.shape[0],1,1)  
+                p_deno = torch.sum(torch.exp(-1 * chamfer_distance(t_points_list, s_points_list) / (2 * sigma)))
+                p_hat_deno = torch.sum(torch.exp(torch.einsum('bl, bl -> b' , t_feature_list, s_feature_list)))
+                # p_hat_deno = sum([torch.dot(t_feature, t_feature_list[s_idx]) for s_idx in range(s_num)])
+                # p_hat_nume =
+                # t_reg_list = []
+                # reg_t = 0.
+                p = torch.exp(-1 * chamfer_distance(t_points_list, s_points_list) / (2 * sigma))/ p_deno
+                p_hat = torch.exp(torch.einsum('bl, bl -> b' , t_feature_list, s_feature_list))/ p_hat_deno
+                reg_t = torch.mean(torch.abs(p_hat-p))
+                # torch.sum(F.l1_loss(p_hat, p))
+
+                # for s_idx in range(s_num):
+                #     reg_t += F.l1_loss((torch.dot(t_feature, s_feature_list[s_idx]) / p_hat_deno),
+                #         (torch.exp(-1 * chamfer_distance(t_points[None,...], s_points_list[s_idx][None,...])/ (2 * sigma)) / p_deno))
+                #     # t_reg_list.append(reg)
+                # reg_t = reg_t / s_num
+                # t_reg = torch.mean(torch.stack(t_reg_list), dim=0)
+                reg_list.append(reg_t)
+        else:
+            print('Must have a regression choice')  
 
         reg_loss = torch.mean(torch.stack(reg_list), dim=0)
-            
-            
-
 
         # triplet_output = torch.mean(torch.tensor(trip_list))
 
@@ -308,8 +368,6 @@ class Trainer(BaseTrainer):
         loss = w_a * anc_loss  + w_r * reg_loss
 
         return loss, anc_loss, reg_loss
-
-
 
     def plot_dot_step(self, data, epoch, m):
 
@@ -343,6 +401,384 @@ class Trainer(BaseTrainer):
         mix_cham_list_pos = []
 
         # import pudb; pu.db
+
+        for n in range(batch_size):
+            anc_list = torch.stack([anc_feature[n]]*(2*batch_size-2), dim=0) 
+            neg_list = torch.cat([anc_feature[0:n], anc_feature[n+1:], pos_feature[0:n], pos_feature[n+1:]], dim=0)
+            anc_neg_dist = pdist(anc_list, neg_list)
+            neg_indexes = [idx for idx, dist in enumerate(anc_neg_dist) if (anc_pos_dist[n] < dist) and (dist < anc_pos_dist[n] + m)]
+            # neg_num = len(neg_indexes)
+            
+            anc_neg_dot = []
+            for m in range(2*batch_size-2):
+                anc_neg = torch.dot(anc_list[m], neg_list[m])
+                anc_neg_dot.append(anc_neg)
+
+            anc_neg_list = torch.Tensor(anc_neg_dot)[neg_indexes]
+
+            anc_neg_dist_list_pos.extend(anc_neg_list)
+            mix_dist_list_pos.extend(torch.Tensor(anc_neg_dot))
+        
+            anc_points_list = torch.stack([anc_points[n]]*(2*batch_size-2), dim=0) 
+            neg_points = torch.cat([anc_points[0:n], anc_points[n+1:], anc_points[0:n], anc_points[n+1:]], dim=0)
+            # neg_points_list = neg_points[neg_indexes]
+            anc_mix_cham = chamfer_distance(anc_points_list, neg_points)/4.6
+            anc_neg_cham = anc_mix_cham[neg_indexes]
+
+            anc_neg_cham_list_pos.extend(anc_neg_cham)
+            mix_cham_list_pos.extend(anc_mix_cham)
+
+        anc_neg_dist_list = []
+        mix_dist_list = []
+
+        anc_neg_cham_list = []
+        mix_cham_list = []
+
+        for n in range(batch_size):
+            anc_list = torch.stack([anc_feature[n]]*(batch_size-1), dim=0) 
+            neg_list = torch.cat([anc_feature[0:n], anc_feature[n+1:]], dim=0)
+            anc_neg_dist = pdist(anc_list, neg_list)
+            neg_indexes = [idx for idx, dist in enumerate(anc_neg_dist) if (anc_pos_dist[n] < dist) and (dist < anc_pos_dist[n] + m)]
+            # neg_num = len(neg_indexes)
+            # anc_neg_list = anc_neg_dist[neg_indexes]
+
+            anc_neg_dot = []
+            for m in range(batch_size-1):
+                anc_neg = torch.dot(anc_list[m], neg_list[m])
+                anc_neg_dot.append(anc_neg)
+
+            anc_neg_list = torch.Tensor(anc_neg_dot)[neg_indexes]
+
+            anc_neg_dist_list.extend(anc_neg_list)
+            mix_dist_list.extend(torch.Tensor(anc_neg_dot))
+        
+            anc_points_list = torch.stack([anc_points[n]]*(batch_size-1), dim=0) 
+            neg_points = torch.cat([anc_points[0:n], anc_points[n+1:]], dim=0)
+            # neg_points_list = neg_points[neg_indexes]
+            anc_mix_cham = chamfer_distance(anc_points_list, neg_points)/4.6
+            anc_neg_cham = anc_mix_cham[neg_indexes] 
+            
+
+            anc_neg_cham_list.extend(anc_neg_cham)
+            mix_cham_list.extend(anc_mix_cham)
+
+        anc_neg_dist_list_pos = torch.Tensor(anc_neg_dist_list_pos).cpu().detach().numpy().tolist()
+        mix_dist_list_pos = torch.Tensor(mix_dist_list_pos).cpu().detach().numpy().tolist()
+
+        anc_neg_cham_list_pos = torch.Tensor(anc_neg_cham_list_pos).cpu().detach().numpy().tolist()
+        mix_cham_list_pos = torch.Tensor(mix_cham_list_pos).cpu().detach().numpy().tolist()
+
+        anc_neg_dist_list = torch.Tensor(anc_neg_dist_list).cpu().detach().numpy().tolist()
+        mix_dist_list = torch.Tensor(mix_dist_list).cpu().detach().numpy().tolist()
+
+        anc_neg_cham_list = torch.Tensor(anc_neg_cham_list).cpu().detach().numpy().tolist()
+        mix_cham_list = torch.Tensor(mix_cham_list).cpu().detach().numpy().tolist()
+
+        anc_pos_dot = torch.Tensor(anc_pos_dot).cpu().detach().numpy().tolist()
+        anc_pos_cham = anc_pos_cham.cpu().detach().numpy().tolist()
+        
+
+        return anc_loss.item(), anc_neg_dist_list_pos, mix_dist_list_pos, anc_neg_cham_list_pos, mix_cham_list_pos, anc_neg_dist_list, mix_dist_list, anc_neg_cham_list, mix_cham_list, anc_pos_dot, anc_pos_cham
+
+    def plot_ll2_step(self, data, epoch, m):
+
+        self.model.train()
+        anc_points = data.get('pointcloud').to(self.device)
+        anc_inputs = data.get('inputs').to(self.device)
+
+        pos_inputs = data.get('inputs.Bias').to(self.device)
+
+        anc_points_out, anc_feature = self.model(anc_inputs)
+        anc_loss = chamfer_distance(anc_points, anc_points_out).mean()
+
+        _, pos_feature = self.model(pos_inputs)
+        batch_size = anc_feature.shape[0]
+
+        pdist = nn.PairwiseDistance(p=2)
+        anc_pos_dist = pdist(anc_feature, pos_feature)
+        anc_pos_dot = []
+        for m in range(batch_size):
+            anc_pos = torch.dot(anc_feature[m], pos_feature[m])
+            anc_pos_dot.append(anc_pos)
+
+        anc_pos_cham = chamfer_distance(anc_points, anc_points)
+
+        mix_dist_list = []
+        mix_cham_list = []
+
+        for n in range(batch_size):
+            anc_list = torch.stack([anc_feature[n]]*(batch_size-1), dim=0) 
+            neg_list = torch.cat([anc_feature[0:n], anc_feature[n+1:]], dim=0)
+            anc_neg_dist = pdist(anc_list, neg_list)
+
+            anc_neg_dot = []
+            for m in range(batch_size-1):
+                anc_neg = 1.4*(1-torch.dot(anc_list[m], neg_list[m]))
+                anc_neg_dot.append(anc_neg)
+
+            mix_dist_list.extend(torch.Tensor(anc_neg_dot))
+        
+            anc_points_list = torch.stack([anc_points[n]]*(batch_size-1), dim=0) 
+            neg_points = torch.cat([anc_points[0:n], anc_points[n+1:]], dim=0)
+            anc_mix_cham = chamfer_distance(anc_points_list, neg_points)/4.6 
+            mix_cham_list.extend(anc_mix_cham)
+
+        mix_dist_list = torch.Tensor(mix_dist_list).cpu().detach().numpy().tolist()
+        mix_cham_list = torch.Tensor(mix_cham_list).cpu().detach().numpy().tolist()
+        
+
+        return anc_loss.item(), mix_dist_list, mix_cham_list
+    
+    def plot_dot_step_blue(self, data, epoch, m):
+
+        self.model.train()
+        anc_points = data.get('pointcloud').to(self.device)
+        anc_inputs = data.get('inputs').to(self.device)
+
+        pos_inputs = data.get('inputs.Bias').to(self.device)
+
+        anc_points_out, anc_feature = self.model(anc_inputs)
+        anc_loss = chamfer_distance(anc_points, anc_points_out).mean()
+
+        _, pos_feature = self.model(pos_inputs)
+        batch_size = anc_feature.shape[0]
+
+        pdist = nn.PairwiseDistance(p=2)
+        anc_pos_dist = pdist(anc_feature, pos_feature)
+        anc_pos_dot = []
+        for m in range(batch_size):
+            anc_pos = torch.dot(anc_feature[m], pos_feature[m])
+            anc_pos_dot.append(anc_pos)
+        anc_pos_cham = chamfer_distance(anc_points, anc_points)
+
+        anc_neg_dist_list_pos = []
+        mix_dist_list_pos = []
+
+        anc_neg_cham_list_pos = []
+        mix_cham_list_pos = []
+
+        for n in range(batch_size):
+            anc_list = torch.stack([anc_feature[n]]*(2*batch_size-2), dim=0) 
+            neg_list = torch.cat([anc_feature[0:n], anc_feature[n+1:], pos_feature[0:n], pos_feature[n+1:]], dim=0)
+            anc_neg_dist = pdist(anc_list, neg_list)
+            neg_indexes = [idx for idx, dist in enumerate(anc_neg_dist) if (anc_pos_dist[n] < dist) and (dist < anc_pos_dist[n] + m)]
+
+            anc_neg_dot = []
+            for m in range(2*batch_size-2):
+                anc_neg = torch.dot(anc_list[m], neg_list[m])
+                anc_neg_dot.append(anc_neg)
+
+            anc_neg_list = torch.Tensor(anc_neg_dot)[neg_indexes]
+
+            anc_neg_dist_list_pos.extend(anc_neg_list)
+            mix_dist_list_pos.extend(torch.Tensor(anc_neg_dot))
+        
+            anc_points_list = torch.stack([anc_points[n]]*(2*batch_size-2), dim=0) 
+            neg_points = torch.cat([anc_points[0:n], anc_points[n+1:], anc_points[0:n], anc_points[n+1:]], dim=0)
+
+            anc_mix_cham = chamfer_distance(anc_points_list, neg_points)/4.6
+            anc_neg_cham = anc_mix_cham[neg_indexes]
+
+            anc_neg_cham_list_pos.extend(anc_neg_cham)
+            mix_cham_list_pos.extend(anc_mix_cham)
+
+        anc_neg_dist_list = []
+        mix_dist_list = []
+
+        anc_neg_cham_list = []
+        mix_cham_list = []
+
+        anc_out_cham_list = []
+        mix_out_list = []
+
+        for n in range(batch_size):
+            anc_list = torch.stack([anc_feature[n]]*(batch_size-1), dim=0) 
+            neg_list = torch.cat([anc_feature[0:n], anc_feature[n+1:]], dim=0)
+            anc_neg_dist = pdist(anc_list, neg_list)
+            neg_indexes = [idx for idx, dist in enumerate(anc_neg_dist) if (anc_pos_dist[n] < dist) and (dist < anc_pos_dist[n] + m)]
+
+            anc_neg_dot = []
+            for m in range(batch_size-1):
+                anc_neg = torch.dot(anc_list[m], neg_list[m])
+                anc_neg_dot.append(anc_neg)
+
+            anc_neg_list = torch.Tensor(anc_neg_dot)[neg_indexes]
+
+            anc_neg_dist_list.extend(anc_neg_list)
+            mix_dist_list.extend(torch.Tensor(anc_neg_dot))
+        
+            anc_points_list = torch.stack([anc_points[n]]*(batch_size-1), dim=0) 
+            neg_points = torch.cat([anc_points[0:n], anc_points[n+1:]], dim=0)
+            anc_mix_cham = chamfer_distance(anc_points_list, neg_points)/4.6
+            anc_neg_cham = anc_mix_cham[neg_indexes]
+            anc_out_list = torch.stack([anc_points_out[n]]*(batch_size-1), dim=0) 
+            neg_out = torch.cat([anc_points_out[0:n], anc_points_out[n+1:]], dim=0)
+            out_mix_cham = chamfer_distance(anc_out_list, neg_out)/4.6
+            anc_out_cham = out_mix_cham[neg_indexes]
+            
+            anc_neg_cham_list.extend(anc_neg_cham)
+            mix_cham_list.extend(anc_mix_cham)
+            anc_out_cham_list.extend(anc_out_cham)
+            mix_out_list.extend(out_mix_cham)
+
+        anc_neg_dist_list_pos = torch.Tensor(anc_neg_dist_list_pos).cpu().detach().numpy().tolist()
+        mix_dist_list_pos = torch.Tensor(mix_dist_list_pos).cpu().detach().numpy().tolist()
+
+        anc_neg_cham_list_pos = torch.Tensor(anc_neg_cham_list_pos).cpu().detach().numpy().tolist()
+        mix_cham_list_pos = torch.Tensor(mix_cham_list_pos).cpu().detach().numpy().tolist()
+
+        anc_neg_dist_list = torch.Tensor(anc_neg_dist_list).cpu().detach().numpy().tolist()
+        mix_dist_list = torch.Tensor(mix_dist_list).cpu().detach().numpy().tolist()
+
+        anc_neg_cham_list = torch.Tensor(anc_neg_cham_list).cpu().detach().numpy().tolist()
+        mix_cham_list = torch.Tensor(mix_cham_list).cpu().detach().numpy().tolist()
+
+        anc_pos_dot = torch.Tensor(anc_pos_dot).cpu().detach().numpy().tolist()
+        anc_pos_cham = anc_pos_cham.cpu().detach().numpy().tolist()
+        
+
+        return mix_cham_list, mix_out_list
+
+    def plot_l2_step(self, data, epoch, m):
+
+        self.model.train()
+        anc_points = data.get('pointcloud').to(self.device)
+        anc_inputs = data.get('inputs').to(self.device)
+
+        pos_inputs = data.get('inputs.Bias').to(self.device)
+
+        anc_points_out, anc_feature = self.model(anc_inputs)
+        anc_loss = chamfer_distance(anc_points, anc_points_out).mean()
+
+        _, pos_feature = self.model(pos_inputs)
+        batch_size = anc_feature.shape[0]
+
+        pdist = nn.PairwiseDistance(p=2)
+        anc_pos_dist = pdist(anc_feature, pos_feature)
+        anc_pos_dot = []
+        for m in range(batch_size):
+            anc_pos = torch.dot(anc_feature[m], pos_feature[m])
+            anc_pos_dot.append(anc_pos)
+        # import pudb; pu.db
+        anc_pos_cham = chamfer_distance(anc_points, anc_points)
+
+        anc_neg_dist_list_pos = []
+        mix_dist_list_pos = []
+
+        anc_neg_cham_list_pos = []
+        mix_cham_list_pos = []
+
+        # import pudb; pu.db
+
+        for n in range(batch_size):
+            anc_list = torch.stack([anc_feature[n]]*(2*batch_size-2), dim=0) 
+            neg_list = torch.cat([anc_feature[0:n], anc_feature[n+1:], pos_feature[0:n], pos_feature[n+1:]], dim=0)
+            anc_neg_dist = pdist(anc_list, neg_list)
+            neg_indexes = [idx for idx, dist in enumerate(anc_neg_dist) if (anc_pos_dist[n] < dist) and (dist < anc_pos_dist[n] + m)]
+            # neg_num = len(neg_indexes)
+            
+            anc_neg_dot = []
+            for m in range(2*batch_size-2):
+                anc_neg = torch.dot(anc_list[m], neg_list[m])
+                anc_neg_dot.append(anc_neg)
+
+            anc_neg_list = torch.Tensor(anc_neg_dot)[neg_indexes]
+
+            anc_neg_dist_list_pos.extend(anc_neg_list)
+            mix_dist_list_pos.extend(torch.Tensor(anc_neg_dot))
+        
+            anc_points_list = torch.stack([anc_points[n]]*(2*batch_size-2), dim=0) 
+            neg_points = torch.cat([anc_points[0:n], anc_points[n+1:], anc_points[0:n], anc_points[n+1:]], dim=0)
+            # neg_points_list = neg_points[neg_indexes]
+            anc_mix_cham = chamfer_distance(anc_points_list, neg_points)/4.6
+            anc_neg_cham = anc_mix_cham[neg_indexes]
+
+            anc_neg_cham_list_pos.extend(anc_neg_cham)
+            mix_cham_list_pos.extend(anc_mix_cham)
+
+        anc_neg_dist_list = []
+        mix_dist_list = []
+
+        anc_neg_cham_list = []
+        mix_cham_list = []
+
+        for n in range(batch_size):
+            anc_list = torch.stack([anc_feature[n]]*(batch_size-1), dim=0) 
+            neg_list = torch.cat([anc_feature[0:n], anc_feature[n+1:]], dim=0)
+            anc_neg_dist = pdist(anc_list, neg_list)
+            neg_indexes = [idx for idx, dist in enumerate(anc_neg_dist) if (anc_pos_dist[n] < dist) and (dist < anc_pos_dist[n] + m)]
+            # neg_num = len(neg_indexes)
+            # anc_neg_list = anc_neg_dist[neg_indexes]
+
+            anc_neg_dot = []
+            for m in range(batch_size-1):
+                anc_neg = torch.dot(anc_list[m], neg_list[m])
+                anc_neg_dot.append(anc_neg)
+
+            anc_neg_list = torch.Tensor(anc_neg_dot)[neg_indexes]
+
+            anc_neg_dist_list.extend(anc_neg_list)
+            mix_dist_list.extend(torch.Tensor(anc_neg_dot))
+        
+            anc_points_list = torch.stack([anc_points[n]]*(batch_size-1), dim=0) 
+            neg_points = torch.cat([anc_points[0:n], anc_points[n+1:]], dim=0)
+            # neg_points_list = neg_points[neg_indexes]
+            anc_mix_cham = chamfer_distance(anc_points_list, neg_points)/4.6
+            anc_neg_cham = anc_mix_cham[neg_indexes] 
+            
+
+            anc_neg_cham_list.extend(anc_neg_cham)
+            mix_cham_list.extend(anc_mix_cham)
+
+        anc_neg_dist_list_pos = torch.Tensor(anc_neg_dist_list_pos).cpu().detach().numpy().tolist()
+        mix_dist_list_pos = torch.Tensor(mix_dist_list_pos).cpu().detach().numpy().tolist()
+
+        anc_neg_cham_list_pos = torch.Tensor(anc_neg_cham_list_pos).cpu().detach().numpy().tolist()
+        mix_cham_list_pos = torch.Tensor(mix_cham_list_pos).cpu().detach().numpy().tolist()
+
+        anc_neg_dist_list = torch.Tensor(anc_neg_dist_list).cpu().detach().numpy().tolist()
+        mix_dist_list = torch.Tensor(mix_dist_list).cpu().detach().numpy().tolist()
+
+        anc_neg_cham_list = torch.Tensor(anc_neg_cham_list).cpu().detach().numpy().tolist()
+        mix_cham_list = torch.Tensor(mix_cham_list).cpu().detach().numpy().tolist()
+
+        anc_pos_dot = torch.Tensor(anc_pos_dot).cpu().detach().numpy().tolist()
+        anc_pos_cham = anc_pos_cham.cpu().detach().numpy().tolist()
+        
+
+        return anc_loss.item(), anc_neg_dist_list_pos, mix_dist_list_pos, anc_neg_cham_list_pos, mix_cham_list_pos, anc_neg_dist_list, mix_dist_list, anc_neg_cham_list, mix_cham_list, anc_pos_dot, anc_pos_cham
+
+    def plot_dot_step_same(self, data, epoch, m):
+
+        self.model.train()
+        anc_points = data.get('pointcloud').to(self.device)
+        anc_inputs = data.get('inputs').to(self.device)
+
+        pos_inputs = data.get('inputs.Bias').to(self.device)
+
+        anc_points_out, anc_feature = self.model(anc_inputs)
+        anc_loss = chamfer_distance(anc_points, anc_points_out).mean()
+
+        pos_points_out, pos_feature = self.model(pos_inputs)
+        batch_size = anc_feature.shape[0]
+
+        pdist = nn.PairwiseDistance(p=2)
+        anc_pos_dist = pdist(anc_feature, pos_feature)
+        anc_pos_dot = []
+        anc_pos_cham = []
+        for m in range(batch_size):
+            # anc_pos = torch.dot(anc_feature[m], pos_feature[m])
+            anc_pos = torch.dist(anc_feature[m], pos_feature[m], p=2)
+            # import pdb; pdb.set_trace()
+            anc_pos_dot.append(anc_pos)
+            anc_pos_points = chamfer_distance(anc_points_out[m].unsqueeze(0), pos_points_out[m].unsqueeze(0))/4.6
+            anc_pos_cham.append(anc_pos_points)
+
+        anc_neg_dist_list_pos = []
+        mix_dist_list_pos = []
+
+        anc_neg_cham_list_pos = []
+        mix_cham_list_pos = []
 
         for n in range(batch_size):
             anc_list = torch.stack([anc_feature[n]]*(2*batch_size-2), dim=0) 
@@ -417,8 +853,425 @@ class Trainer(BaseTrainer):
         mix_cham_list = torch.Tensor(mix_cham_list).cpu().detach().numpy().tolist()
 
         anc_pos_dot = torch.Tensor(anc_pos_dot).cpu().detach().numpy().tolist()
-        anc_pos_cham = anc_pos_cham.cpu().detach().numpy().tolist()
+        anc_pos_cham = torch.Tensor(anc_pos_cham).cpu().detach().numpy().tolist()
         
 
         return anc_loss.item(), anc_neg_dist_list_pos, mix_dist_list_pos, anc_neg_cham_list_pos, mix_cham_list_pos, anc_neg_dist_list, mix_dist_list, anc_neg_cham_list, mix_cham_list, anc_pos_dot, anc_pos_cham
 
+    def plot_offset(self, data, epoch, m):
+
+        self.model.train()
+        anc_points = data.get('pointcloud').to(self.device)
+        anc_inputs = data.get('inputs').to(self.device)
+
+        pos_inputs = data.get('inputs.Bias').to(self.device)
+
+        anc_points_out, anc_feature = self.model(anc_inputs)
+        anc_loss = chamfer_distance(anc_points, anc_points_out).mean()
+
+        pos_points_out, pos_feature = self.model(pos_inputs)
+        batch_size = anc_feature.shape[0]
+
+        # bias = torch.rand(size=pos_feature.shape).to(self.device)
+        # bias = (bias - 0.5) * 0.003
+        # anc_feature = anc_feature + bias
+        # pos_feature = pos_feature + bias
+
+        pdist = nn.PairwiseDistance(p=2)
+        anc_pos_dist = pdist(anc_feature, pos_feature)
+        # anc_pos_dot = []
+        # anc_pos_cham = []
+        # for m in range(batch_size):
+        #     # anc_pos = torch.dot(anc_feature[m], pos_feature[m])
+        #     anc_pos = torch.dist(anc_feature[m], pos_feature[m], p=2)
+        #     # import pdb; pdb.set_trace()
+        #     anc_pos_dot.append(anc_pos)
+        #     anc_pos_points = chamfer_distance(anc_points_out[m].unsqueeze(0), pos_points_out[m].unsqueeze(0))/4.6
+        #     anc_pos_cham.append(anc_pos_points)
+
+        anc_neg_dist_list_pos = []
+        mix_dist_list_pos = []
+
+        anc_neg_cham_list_pos = []
+        mix_cham_list_pos = []
+
+        for n in range(batch_size):
+            anc_list = torch.stack([anc_feature[n]]*(2*batch_size-2), dim=0) 
+            neg_list = torch.cat([anc_feature[0:n], anc_feature[n+1:], pos_feature[0:n], pos_feature[n+1:]], dim=0)
+            anc_neg_dist = pdist(anc_list, neg_list)
+            neg_indexes = [idx for idx, dist in enumerate(anc_neg_dist) if (anc_pos_dist[n] < dist) and (dist < anc_pos_dist[n] + m)]
+            # neg_num = len(neg_indexes)
+            
+            anc_neg_dot = []
+            for m in range(2*batch_size-2):
+                anc_neg = torch.dot(anc_list[m], neg_list[m])
+                anc_neg_dot.append(anc_neg)
+
+            anc_neg_list = torch.Tensor(anc_neg_dot)[neg_indexes]
+
+            anc_neg_dist_list_pos.extend(anc_neg_list)
+            mix_dist_list_pos.extend(torch.Tensor(anc_neg_dot))
+        
+            anc_points_list = torch.stack([anc_points[n]]*(2*batch_size-2), dim=0) 
+            neg_points = torch.cat([anc_points[0:n], anc_points[n+1:], anc_points[0:n], anc_points[n+1:]], dim=0)
+            # neg_points_list = neg_points[neg_indexes]
+            anc_mix_cham = chamfer_distance(anc_points_list, neg_points)
+            anc_neg_cham = anc_mix_cham[neg_indexes]
+
+            anc_neg_cham_list_pos.extend(anc_neg_cham)
+            mix_cham_list_pos.extend(anc_mix_cham)
+
+        anc_neg_dist_list = []
+        mix_dist_list = []
+
+        anc_neg_cham_list = []
+        mix_cham_list = []
+
+        for n in range(batch_size):
+            anc_list = torch.stack([anc_feature[n]]*(batch_size-1), dim=0) 
+            neg_list = torch.cat([anc_feature[0:n], anc_feature[n+1:]], dim=0)
+            anc_neg_dist = pdist(anc_list, neg_list)
+            neg_indexes = [idx for idx, dist in enumerate(anc_neg_dist) if (anc_pos_dist[n] < dist) and (dist < anc_pos_dist[n] + m)]
+            # neg_num = len(neg_indexes)
+            # anc_neg_list = anc_neg_dist[neg_indexes]
+
+            anc_neg_dot = []
+            for m in range(batch_size-1):
+                anc_neg = torch.dist(anc_list[m], neg_list[m], p=2)
+                anc_neg_dot.append(anc_neg)
+
+            anc_neg_list = torch.Tensor(anc_neg_dot)[neg_indexes]
+
+            anc_neg_dist_list.extend(anc_neg_list)
+            mix_dist_list.extend(torch.Tensor(anc_neg_dot))
+        
+            anc_points_list = torch.stack([anc_points_out[n]]*(batch_size-1), dim=0) 
+            neg_points = torch.cat([anc_points_out[0:n], anc_points_out[n+1:]], dim=0)
+            # neg_points_list = neg_points[neg_indexes]
+            anc_mix_cham = chamfer_distance(anc_points_list, neg_points)/4.6
+            anc_mix_cham = anc_mix_cham[neg_indexes]
+            
+
+            anc_neg_cham_list.extend(anc_neg_cham)
+            mix_cham_list.extend(anc_mix_cham)
+
+        anc_neg_dist_list_pos = torch.Tensor(anc_neg_dist_list_pos).cpu().detach().numpy().tolist()
+        mix_dist_list_pos = torch.Tensor(mix_dist_list_pos).cpu().detach().numpy().tolist()
+
+        anc_neg_cham_list_pos = torch.Tensor(anc_neg_cham_list_pos).cpu().detach().numpy().tolist()
+        mix_cham_list_pos = torch.Tensor(mix_cham_list_pos).cpu().detach().numpy().tolist()
+
+        anc_neg_dist_list = torch.Tensor(anc_neg_dist_list).cpu().detach().numpy().tolist()
+        mix_dist_list = torch.Tensor(mix_dist_list).cpu().detach().numpy().tolist()
+
+        anc_neg_cham_list = torch.Tensor(anc_neg_cham_list).cpu().detach().numpy().tolist()
+        mix_cham_list = torch.Tensor(mix_cham_list).cpu().detach().numpy().tolist()
+
+        # anc_pos_dot = torch.Tensor(anc_pos_dot).cpu().detach().numpy().tolist()
+        # anc_pos_cham = torch.Tensor(anc_pos_cham).cpu().detach().numpy().tolist()
+        
+
+        return mix_cham_list,anc_neg_dist_list
+
+    def plot_offset1(self, data, epoch, m):
+
+        self.model.train()
+        anc_points = data.get('pointcloud').to(self.device)
+        anc_inputs = data.get('inputs').to(self.device)
+
+        anc_points_out, anc_feature, anc_latent = self.model(anc_inputs)
+
+        bias = torch.rand(size=anc_feature.shape).to(self.device)
+        bias = (bias - 0.5) * torch.mean(anc_latent) * 0.5
+        anc_latent_b = anc_latent + bias
+        pdist = nn.PairwiseDistance(p=2)
+        l2bias = pdist(anc_latent, anc_latent_b)
+        anc_points_bias = self.model.bias(anc_latent_b)
+        l1sdf = chamfer_distance(anc_points_out, anc_points_bias)/4.6
+        # sdf = chamfer_distance(anc_points_out, anc_points_bias)
+        # sdf = l2bias
+        # l1sdf = torch.pow(sdf, 4)
+
+        return l2bias, l1sdf, torch.mean(anc_latent)
+
+    def plot_dot_step_same1(self, data, epoch, m):
+        self.model.train()
+        anc_points = data.get('pointcloud').to(self.device)
+        anc_inputs = data.get('inputs').to(self.device)
+
+        pos_inputs = data.get('inputs.Bias').to(self.device)
+
+        anc_points_out, anc_feature = self.model(anc_inputs)
+        anc_loss = chamfer_distance(anc_points, anc_points_out).mean()
+
+        pos_points_out, pos_feature = self.model(pos_inputs)
+        batch_size = anc_feature.shape[0]
+        
+        bias = torch.rand(size=pos_feature.shape).to(self.device)
+        bias = (bias - 0.5) * 0.003
+        anc_feature = anc_feature + bias
+        pos_feature = pos_feature + bias
+
+        pdist = nn.PairwiseDistance(p=2)
+        anc_pos_dist = pdist(anc_feature, pos_feature)
+        anc_pos_dot = []
+        anc_pos_cham = []
+        for m in range(batch_size):
+            # anc_pos = torch.dot(anc_feature[m], pos_feature[m])
+            anc_pos = torch.dist(anc_feature[m], pos_feature[m], p=2)
+            anc_pos_dot.append(anc_pos)
+            anc_pos_points = chamfer_distance(anc_points_out[m].unsqueeze(0), pos_points_out[m].unsqueeze(0))
+            anc_pos_cham.append(anc_pos_points)
+
+        anc_neg_dist_list_pos = []
+        mix_dist_list_pos = []
+
+        anc_neg_cham_list_pos = []
+        mix_cham_list_pos = []
+
+        for n in range(batch_size):
+            anc_list = torch.stack([anc_feature[n]]*(2*batch_size-2), dim=0) 
+            neg_list = torch.cat([anc_feature[0:n], anc_feature[n+1:], pos_feature[0:n], pos_feature[n+1:]], dim=0)
+            anc_neg_dist = pdist(anc_list, neg_list)
+            neg_indexes = [idx for idx, dist in enumerate(anc_neg_dist) if (anc_pos_dist[n] < dist) and (dist < anc_pos_dist[n] + m)]
+            # neg_num = len(neg_indexes)
+            
+            anc_neg_dot = []
+            for m in range(2*batch_size-2):
+                anc_neg = torch.dot(anc_list[m], neg_list[m])
+                anc_neg_dot.append(anc_neg)
+
+            anc_neg_list = torch.Tensor(anc_neg_dot)[neg_indexes]
+
+            anc_neg_dist_list_pos.extend(anc_neg_list)
+            mix_dist_list_pos.extend(torch.Tensor(anc_neg_dot))
+        
+            anc_points_list = torch.stack([anc_points[n]]*(2*batch_size-2), dim=0) 
+            neg_points = torch.cat([anc_points[0:n], anc_points[n+1:], anc_points[0:n], anc_points[n+1:]], dim=0)
+            # neg_points_list = neg_points[neg_indexes]
+            anc_mix_cham = chamfer_distance(anc_points_list, neg_points)
+            anc_neg_cham = anc_mix_cham[neg_indexes]
+
+            anc_neg_cham_list_pos.extend(anc_neg_cham)
+            mix_cham_list_pos.extend(anc_mix_cham)
+
+        anc_neg_dist_list = []
+        mix_dist_list = []
+
+        anc_neg_cham_list = []
+        mix_cham_list = []
+
+        for n in range(batch_size):
+            anc_list = torch.stack([anc_feature[n]]*(batch_size-1), dim=0) 
+            neg_list = torch.cat([anc_feature[0:n], anc_feature[n+1:]], dim=0)
+            anc_neg_dist = pdist(anc_list, neg_list)
+            neg_indexes = [idx for idx, dist in enumerate(anc_neg_dist) if (anc_pos_dist[n] < dist) and (dist < anc_pos_dist[n] + m)]
+            # neg_num = len(neg_indexes)
+            # anc_neg_list = anc_neg_dist[neg_indexes]
+
+            anc_neg_dot = []
+            for m in range(batch_size-1):
+                anc_neg = torch.dot(anc_list[m], neg_list[m])
+                anc_neg_dot.append(anc_neg)
+
+            anc_neg_list = torch.Tensor(anc_neg_dot)[neg_indexes]
+
+            anc_neg_dist_list.extend(anc_neg_list)
+            mix_dist_list.extend(torch.Tensor(anc_neg_dot))
+        
+            anc_points_list = torch.stack([anc_points[n]]*(batch_size-1), dim=0) 
+            neg_points = torch.cat([anc_points[0:n], anc_points[n+1:]], dim=0)
+            # neg_points_list = neg_points[neg_indexes]
+            anc_mix_cham = chamfer_distance(anc_points_list, neg_points)
+            anc_neg_cham = anc_mix_cham[neg_indexes]
+            
+
+            anc_neg_cham_list.extend(anc_neg_cham)
+            mix_cham_list.extend(anc_mix_cham)
+
+        anc_neg_dist_list_pos = torch.Tensor(anc_neg_dist_list_pos).cpu().detach().numpy().tolist()
+        mix_dist_list_pos = torch.Tensor(mix_dist_list_pos).cpu().detach().numpy().tolist()
+
+        anc_neg_cham_list_pos = torch.Tensor(anc_neg_cham_list_pos).cpu().detach().numpy().tolist()
+        mix_cham_list_pos = torch.Tensor(mix_cham_list_pos).cpu().detach().numpy().tolist()
+
+        anc_neg_dist_list = torch.Tensor(anc_neg_dist_list).cpu().detach().numpy().tolist()
+        mix_dist_list = torch.Tensor(mix_dist_list).cpu().detach().numpy().tolist()
+
+        anc_neg_cham_list = torch.Tensor(anc_neg_cham_list).cpu().detach().numpy().tolist()
+        mix_cham_list = torch.Tensor(mix_cham_list).cpu().detach().numpy().tolist()
+
+        anc_pos_dot = torch.Tensor(anc_pos_dot).cpu().detach().numpy().tolist()
+        anc_pos_cham = torch.Tensor(anc_pos_cham).cpu().detach().numpy().tolist()
+        
+
+        return anc_loss.item(), anc_neg_dist_list_pos, mix_dist_list_pos, anc_neg_cham_list_pos, mix_cham_list_pos, anc_neg_dist_list, mix_dist_list, anc_neg_cham_list, mix_cham_list, anc_pos_dot, anc_pos_cham
+
+
+    def plot_dot_step_same2(self, data, epoch, m):
+        self.model.train()
+        anc_points = data.get('pointcloud').to(self.device)
+        anc_inputs = data.get('inputs').to(self.device)
+
+        pos_inputs = data.get('inputs.Bias').to(self.device)
+
+        anc_points_out, anc_feature = self.model(anc_inputs)
+        anc_loss = chamfer_distance(anc_points, anc_points_out).mean()
+
+        pos_points_out, pos_feature = self.model(pos_inputs)
+        batch_size = anc_feature.shape[0]
+        
+        bias = torch.rand(size=pos_feature.shape).to(self.device)
+        bias = (bias - 0.5) * 0.003
+        anc_feature = anc_feature + bias
+        pos_feature = pos_feature + bias
+
+        pdist = nn.PairwiseDistance(p=2)
+        anc_pos_dist = pdist(anc_feature, pos_feature)
+        anc_pos_dot = []
+        anc_pos_cham = []
+        for m in range(batch_size):
+            anc_pos = torch.dot(anc_feature[m], pos_feature[m])
+            anc_pos_dot.append(anc_pos)
+            anc_pos_points = chamfer_distance(anc_points_out[m].unsqueeze(0), pos_points_out[m].unsqueeze(0))
+            anc_pos_cham.append(anc_pos_points)
+
+        anc_neg_dist_list_pos = []
+        mix_dist_list_pos = []
+
+        anc_neg_cham_list_pos = []
+        mix_cham_list_pos = []
+
+        for n in range(batch_size):
+            anc_list = torch.stack([anc_feature[n]]*(2*batch_size-2), dim=0) 
+            neg_list = torch.cat([anc_feature[0:n], anc_feature[n+1:], pos_feature[0:n], pos_feature[n+1:]], dim=0)
+            anc_neg_dist = pdist(anc_list, neg_list)
+            neg_indexes = [idx for idx, dist in enumerate(anc_neg_dist) if (anc_pos_dist[n] < dist) and (dist < anc_pos_dist[n] + m)]
+            # neg_num = len(neg_indexes)
+            
+            anc_neg_dot = []
+            for m in range(2*batch_size-2):
+                anc_neg = torch.dot(anc_list[m], neg_list[m])
+                anc_neg_dot.append(anc_neg)
+
+            anc_neg_list = torch.Tensor(anc_neg_dot)[neg_indexes]
+
+            anc_neg_dist_list_pos.extend(anc_neg_list)
+            mix_dist_list_pos.extend(torch.Tensor(anc_neg_dot))
+        
+            anc_points_list = torch.stack([anc_points[n]]*(2*batch_size-2), dim=0) 
+            neg_points = torch.cat([anc_points[0:n], anc_points[n+1:], anc_points[0:n], anc_points[n+1:]], dim=0)
+            # neg_points_list = neg_points[neg_indexes]
+            anc_mix_cham = chamfer_distance(anc_points_list, neg_points)
+            anc_neg_cham = anc_mix_cham[neg_indexes]
+
+            anc_neg_cham_list_pos.extend(anc_neg_cham)
+            mix_cham_list_pos.extend(anc_mix_cham)
+
+        anc_neg_dist_list = []
+        mix_dist_list = []
+
+        anc_neg_cham_list = []
+        mix_cham_list = []
+
+        for n in range(batch_size):
+            anc_list = torch.stack([anc_feature[n]]*(batch_size-1), dim=0) 
+            neg_list = torch.cat([anc_feature[0:n], anc_feature[n+1:]], dim=0)
+            anc_neg_dist = pdist(anc_list, neg_list)
+            neg_indexes = [idx for idx, dist in enumerate(anc_neg_dist) if (anc_pos_dist[n] < dist) and (dist < anc_pos_dist[n] + m)]
+            # neg_num = len(neg_indexes)
+            # anc_neg_list = anc_neg_dist[neg_indexes]
+
+            anc_neg_dot = []
+            for m in range(batch_size-1):
+                anc_neg = torch.dot(anc_list[m], neg_list[m])
+                anc_neg_dot.append(anc_neg)
+
+            anc_neg_list = torch.Tensor(anc_neg_dot)[neg_indexes]
+
+            anc_neg_dist_list.extend(anc_neg_list)
+            mix_dist_list.extend(torch.Tensor(anc_neg_dot))
+        
+            anc_points_list = torch.stack([anc_points[n]]*(batch_size-1), dim=0) 
+            neg_points = torch.cat([anc_points[0:n], anc_points[n+1:]], dim=0)
+            # neg_points_list = neg_points[neg_indexes]
+            anc_mix_cham = chamfer_distance(anc_points_list, neg_points)
+            anc_neg_cham = anc_mix_cham[neg_indexes]
+            
+
+            anc_neg_cham_list.extend(anc_neg_cham)
+            mix_cham_list.extend(anc_mix_cham)
+
+        anc_neg_dist_list_pos = torch.Tensor(anc_neg_dist_list_pos).cpu().detach().numpy().tolist()
+        mix_dist_list_pos = torch.Tensor(mix_dist_list_pos).cpu().detach().numpy().tolist()
+
+        anc_neg_cham_list_pos = torch.Tensor(anc_neg_cham_list_pos).cpu().detach().numpy().tolist()
+        mix_cham_list_pos = torch.Tensor(mix_cham_list_pos).cpu().detach().numpy().tolist()
+
+        anc_neg_dist_list = torch.Tensor(anc_neg_dist_list).cpu().detach().numpy().tolist()
+        mix_dist_list = torch.Tensor(mix_dist_list).cpu().detach().numpy().tolist()
+
+        anc_neg_cham_list = torch.Tensor(anc_neg_cham_list).cpu().detach().numpy().tolist()
+        mix_cham_list = torch.Tensor(mix_cham_list).cpu().detach().numpy().tolist()
+
+        anc_pos_dot = torch.Tensor(anc_pos_dot).cpu().detach().numpy().tolist()
+        anc_pos_cham = torch.Tensor(anc_pos_cham).cpu().detach().numpy().tolist()
+        
+
+        return anc_loss.item(), anc_neg_dist_list_pos, mix_dist_list_pos, anc_neg_cham_list_pos, mix_cham_list_pos, anc_neg_dist_list, mix_dist_list, anc_neg_cham_list, mix_cham_list, anc_pos_dot, anc_pos_cham
+
+
+    def plot_sne(self, data, epoch, m):
+        self.model.train()
+        anc_points = data.get('pointcloud').to(self.device)
+        anc_inputs = data.get('inputs').to(self.device)
+
+        label = data.get('inputs.view').to(self.device)
+        label = label.tolist()
+
+        # pos_inputs = data.get('inputs.Bias').to(self.device)
+
+        anc_points_out, anc_feature = self.model(anc_inputs)
+        anc_feature_out = anc_feature.cpu().detach().numpy().tolist()
+        # anc_loss = chamfer_distance(anc_points, anc_points_out).mean()
+
+        # pos_points_out, pos_feature = self.model(pos_inputs)
+        # batch_size = anc_feature.shape[0]
+        
+
+        return anc_feature_out, label
+
+
+    def plot_red(self, data, epoch, m):
+        self.model.train()
+        anc_points = data.get('pointcloud').to(self.device)
+        anc_inputs = data.get('inputs').to(self.device)
+
+        pos_inputs = data.get('inputs.Bias').to(self.device)
+        pos_inputs1 = data.get('inputs.Bias1').to(self.device)
+        pos_inputs2 = data.get('inputs.Bias2').to(self.device)
+        pos_inputs3 = data.get('inputs.Bias3').to(self.device)
+
+        anc_points_out, anc_feature = self.model(anc_inputs)
+        # anc_loss = chamfer_distance(anc_points, anc_points_out).mean()
+
+        pos_points_out, pos_feature = self.model(pos_inputs)
+        pos_points_out1, pos_feature1 = self.model(pos_inputs1)
+        pos_points_out2, pos_feature2 = self.model(pos_inputs2)
+        pos_points_out3, pos_feature3 = self.model(pos_inputs3)
+        sdf = []
+        cd = chamfer_distance(pos_points_out, pos_points_out1)/4.6
+        cd1 = chamfer_distance(pos_points_out, pos_points_out2)/4.6
+        cd2 = chamfer_distance(pos_points_out, pos_points_out3)/4.6
+        cd3 = chamfer_distance(pos_points_out1, pos_points_out2)/4.6
+        cd4 = chamfer_distance(pos_points_out1, pos_points_out3)/4.6
+        cd5 = chamfer_distance(pos_points_out2, pos_points_out3)/4.6
+        sdf.append(cd)
+        sdf.append(cd1)
+        sdf.append(cd2)
+        sdf.append(cd3)
+        sdf.append(cd4)
+        sdf.append(cd5)
+
+    
+        return sdf

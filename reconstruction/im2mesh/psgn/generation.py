@@ -25,7 +25,7 @@ class Generator3D(object):
         self.knn_normals = knn_normals
         self.poisson_depth = poisson_depth
 
-    def generate_pointcloud(self, data, i):
+    def generate_pointcloud(self, data):
         r''' Generates a point cloud by simply using the output of the network.
 
         Args:
@@ -34,9 +34,9 @@ class Generator3D(object):
         self.model.eval()
         device = self.device
 
-        # inputs = data.get('inputs', torch.empty(1, 0)).to(device)
+        inputs = data.get('inputs', torch.empty(1, 0)).to(device)
         # import pudb; pu.db
-        inputs = data.get('inputs')[i].to(device)
+        # inputs = data.get('inputs')[i].to(device)
 
         with torch.no_grad():
             points, _ = self.model(inputs)
